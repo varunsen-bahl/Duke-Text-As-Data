@@ -1,0 +1,178 @@
+# load library
+library(readr)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(tidytext)
+library(ggplot2)
+library(forcats)
+library(tibble)
+library(scales)
+
+# load texts
+file_a <- "texts/A07594__Circle_of_Commerce.txt"
+file_b <- "texts/B14801__Free_Trade.txt"
+
+# Read the raw text files into R
+text_a <- read_file(file_a)
+text_b <- read_file(file_b)
+
+# Combine into a tibble for tidytext workflows
+texts <- tibble(
+  doc_title = c("Text A", "Text B"),
+  text = c(text_a, text_b)
+)
+
+# Create a diagnostics table (before stopword removal)
+
+corpus_diagnostics <- texts %>%
+  mutate(n_chars = nchar(text)) %>%
+  unnest_tokens(word, text) %>%
+  mutate(word = str_to_lower(word)) %>%
+  group_by(doc_title, n_chars)%>%
+  summarise(
+    n_word_tokens = n(),
+    n_word_types = n_distinct(word),
+    .groups = "drop"
+  )
+
+corpus_diagnostics
+
+# Start with tidytext's built-in stopword list
+data("stop_words")
+
+# Add our own project-specific stopwords (you can, and will, expand this list later)
+custom_stopwords <- tibble(
+  word = c(
+    "vnto", "haue", "doo", "hath", "bee", "ye", "thee"
+  )
+)
+
+all_stopwords <- bind_rows(stop_words, custom_stopwords) %>%
+  distinct(word)
+
+all_stopwords %>% slice(1:10)
+
+# Tokenization
+word_counts <- texts %>%
+  unnest_tokens(word, text) %>%
+  mutate(word = str_to_lower(word)) %>%
+  anti_join(all_stopwords, by = "word") %>%
+  count(doc_title, word, sort = TRUE)
+word_counts
+
+# calculate proportionate word counts 
+propword_counts <- word_counts %>%
+  group_by(doc_title) %>%
+  mutate(proportion = n/sum(n))
+  
+propword_counts
+
+# calculate proportionate word counts by doc length
+pre_word_counts <- texts %>%
+  unnest_tokens(word, text) %>%
+  mutate(word = str_to_lower(word)) %>%
+  count(doc_title, word, sort = TRUE)
+
+doc_len_counts <- pre_word_counts %>%
+  group_by(doc_title) %>%
+  mutate(proportion = n/sum(n))
+
+print(doc_len_counts)
+
+### plotting 
+
+plot_n_words <- 20  # you can change this as needed
+
+# Select the most frequent words overall
+word_comparison_tbl <- word_counts %>%
+  pivot_wider(
+    names_from = doc_title,
+    values_from = n,
+    values_fill = 0
+  ) %>%
+  mutate(max_n = pmax(`Text A`, `Text B`)) %>%
+  arrange(desc(max_n))
+
+word_plot_data <- word_comparison_tbl %>%
+  slice_head(n = plot_n_words) %>%
+  pivot_longer(
+    cols = c(`Text A`, `Text B`),
+    names_to = "doc_title",
+    values_to = "n"
+  ) %>%
+  mutate(word = fct_reorder(word, n, .fun = max))
+
+plot <- ggplot(word_plot_data, aes(x = n, y = word)) + #black magic happens thanks to ggplot
+  geom_col() +
+  facet_wrap(~ doc_title, scales = "free_x") +
+  labs(
+    title = "Most frequent words (stopwords removed)",
+    subtitle = paste0(
+      "Top ", plot_n_words,
+      " words by maximum frequency across both texts"
+    ),
+    x = "Word frequency",
+    y = NULL
+  ) +
+  theme_minimal()
+
+plot
+
+ggsave(
+  filename= "homework1_3.png",
+  plot = plot,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+
+
+### plotting 
+
+plot_n_words <- 20  # you can change this as needed
+
+# Select the most frequent words overall
+word_comparison_tbl <- pre_word_counts %>%
+  pivot_wider(
+    names_from = doc_title,
+    values_from = n,
+    values_fill = 0
+  ) %>%
+  mutate(max_n = pmax(`Text A`, `Text B`)) %>%
+  arrange(desc(max_n))
+
+word_plot_data <- word_comparison_tbl %>%
+  slice_head(n = plot_n_words) %>%
+  pivot_longer(
+    cols = c(`Text A`, `Text B`),
+    names_to = "doc_title",
+    values_to = "n"
+  ) %>%
+  mutate(word = fct_reorder(word, n, .fun = max))
+
+plot <- ggplot(word_plot_data, aes(x = n, y = word)) + #black magic happens thanks to ggplot
+  geom_col() +
+  facet_wrap(~ doc_title, scales = "free_x") +
+  labs(
+    title = "Most frequent words (stopwords not removed)",
+    subtitle = paste0(
+      "Top ", plot_n_words,
+      " words by maximum frequency across both texts"
+    ),
+    x = "Word frequency",
+    y = NULL
+  ) +
+  theme_minimal()
+
+plot
+
+ggsave(
+  filename= "homework1_3_2.png",
+  plot = plot,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
