@@ -1,0 +1,333 @@
+# ============================================================
+# IDS 570: Data Exploration Exercise
+# Varun Sen Bahl 
+# ============================================================
+
+# ---------------------
+# I - Setup
+# ---------------------
+
+## 1: load libraries
+library(here)
+library(readr)
+library(tibble)
+library(tools)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(tidyverse)
+library(tidytext)
+library(ggplot2)
+library(forcats)
+library(scales)
+library(quanteda)
+library(quanteda.textstats)
+library(udpipe)
+library(gt)
+
+## 2: loading directories and texts
+
+### directories
+text_files <- here("texts")
+outputs <- here("outputs")
+
+### texts
+all_files <- list.files(text_files, pattern = "\\.txt$", full.names = TRUE)
+
+### text names from EarlyPrint library
+name_map <- c(
+  "A06785.txt" = "Malynes_Center",
+  "A06786.txt" = "Malynes_Consuetudo",
+  "A06788.txt" = "Malynes_Englands",
+  "A06789.txt" = "Malynes_FreeTrade",
+  "A06790.txt" = "Malynes_StGeorge",
+  "A06791.txt" = "Malynes_Treatise",
+  "A07594.txt" = "Misselden_Circle",
+  "A07886.txt" = "Mun_Discourse",
+  "A32827.txt" = "Child_Discourse1",
+  "A32828.txt" = "Child_Discourse2",
+  "A32829.txt" = "Child_Wool",
+  "A32830.txt" = "Child_EastIndia",
+  "A32833.txt" = "Child_NewDiscourse",
+  "A32836.txt" = "Child_Proposals",
+  "A32837.txt" = "Child_AdditionTrade",
+  "A32838.txt" = "Child_Supplement",
+  "A32839.txt" = "Child_Treatise",
+  "A50763.txt" = "Child_Method",
+  "A51598.txt" = "Mun_Treasure",
+  "A69858.txt" = "Child_Discourse3",
+  "A93819.txt" = "Child_StateCase",
+  "B14801.txt" = "Misselden_FreeTrade",
+  "wealth.txt" = "Smith_Wealth"
+)
+
+# 3: Read the raw text files into R
+text_tbl <- tibble(
+  file = basename(all_files),
+  doc_id = name_map[file],
+  text = sapply(all_files, read_file, USE.NAMES = FALSE)
+)
+
+# ---------------------
+# II - Preprocessing 
+# ---------------------
+# 1: Normalization (with backup)
+
+replacements <- c(
+ "ſ" = "s",
+ "vpon" = "upon"
+)
+
+text_tbl <- text_tbl %>%
+  mutate(text_clean = text %>%
+      str_replace_all(replacements) %>%
+      str_replace_all("2dly", "secondly") %>%
+      str_replace_all("\\s+", " ") %>%  
+      str_to_lower()
+  )
+
+corp <- corpus(text_tbl, text_field = "text_clean")
+
+# 2: Tokenization
+
+texts_toks <- tokens(
+  corp,
+  remove_punct = TRUE,
+  remove_numbers = TRUE,
+  remove_symbols = TRUE
+)
+
+texts_toks <- tokens_tolower(texts_toks)
+
+# 3: Basic stopword removal
+
+
+custom_stop <- c(
+  "vnto","haue","doo","hath","bee","ye","thee","hee","shall","hast","doe",
+  "beene","thereof","thus", "answ", "arg", "pag", "em", "etc", "th", "o", "l", "ll"
+)
+
+texts_toks <- tokens_remove(texts_toks, pattern = c(stopwords("en"), custom_stop))
+# ---------------------
+# III - TF-IDF: lexical distinctiveness 
+# ---------------------
+
+# 1. Construct a document feature matrix 
+dfm_mat <- dfm(texts_toks)
+
+### Inspection by raw count 
+# view(topfeatures(dfm_mat, 25))
+
+# 2. Compute TF-IDF weights 
+dfm_tfidf <- dfm_tfidf(dfm_mat)
+dfm_tfidf
+
+# 3. Extract top 15 TF-IDF terms for each document 
+top10_tfidf <- dfm_tfidf %>%
+  tidy() %>%
+  group_by(document) %>%
+  slice_max(order_by= count, n=10, with_ties = FALSE) %>%
+  ungroup()
+
+top10_tfidf %>%
+  gt() %>%
+  gtsave(here("outputs", "top10_tfidf.html"))
+  
+# 4. Visualize top 10 TF-IDF terms for each document 
+
+part1 <- ggplot(
+  top10_tfidf, aes(x = count, y = reorder(term, count))
+  )+
+  geom_col(width = 0.6) +
+  facet_wrap(~ document, scales = "free", ncol = 4) +
+  labs(
+    title = "Most Characteristic Terms by Document (TF–IDF)",
+    x = "TF–IDF weight",
+    y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 8),
+    panel.spacing = unit(1, "lines")
+  )
+
+ggsave(
+  filename = here::here("outputs", "tfidf_plot1.png"),
+  plot = part1,
+  width = 12,
+  height = 10,
+  dpi = 300
+)
+
+
+  
+# ---------------------
+# IV - Pearson correlation: similarity and distance between texts
+# ---------------------
+
+# 1. Trimming very rare words from DFM 
+
+
+# 2. Use the DFM to compute pairwise Pearson correlations
+
+sim_cor <- textstat_simil(
+  dfm_mat,
+  method = "correlation",
+  margin = "documents"
+)
+
+sim_cor
+
+### Convert similarity object to a matrix
+r_mat <- as.matrix(sim_cor)
+
+### Take a quick look
+dim(r_mat)
+r_mat[1:5, 1:5]
+
+# 3. Visualizing results using similarity heatmap 
+
+### rounding correlation for readability 
+r_mat <- round(r_mat, 3)
+
+### Long format for ggplot
+heat_df <- as.data.frame(r_mat) %>%
+  rownames_to_column("doc_i") %>% # First document in pair
+  pivot_longer(-doc_i, names_to = "doc_j" , values_to = "r") # Second document +
+correlation
+
+### create the heatmap
+ggplot(heat_df, aes(x = doc_j, y = doc_i, fill = r)) +
+  geom_tile() + # Create colored tiles
+  coord_fixed() + # Keep tiles square
+  scale_fill_gradient2(
+    low = "blue" ,
+    mid = "white" ,
+    high = "red" ,
+    midpoint = 0 # Center color scale at 0
+  ) +
+  labs( title = "Pearson Correlation Between Documents" ,
+        x = NULL,
+        y = NULL,
+        fill = "Correlation"
+  ) + theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+
+### interpretation of heatmap
+
+
+
+# 4. Interpretive questions:
+
+
+# 4(a): identifying two most similar document pairs 
+
+
+
+# 4(b): identifying two least similar document pairs 
+
+
+
+
+# 4(c): What questions can we ask from this corpus based on the above? (with explanation)
+
+
+
+# ---------------------
+# V - Syntactic complexity profile 
+# ---------------------
+
+# 1: Picking two texts (with explanation)
+
+
+# 2: Creating syntactic complexity framework
+
+
+
+## 2(a): mean length of sentence 
+
+
+
+
+
+## 2(b): clauses per sentence 
+
+
+
+
+## 2(c): dependent clauses per clause and/or sentence 
+
+
+
+
+## 2(d): coordination per clause and/or sentence 
+
+
+
+
+## 2(e): complex nominals per clause and/or sentence 
+
+
+
+# 3: Summary table reporting all syntactic measures for both texts 
+
+
+
+
+## 3(a): Example sentence from each text
+
+
+
+
+# 4: Interpretive questions 
+
+
+## 4(a): How do the two texts differ in syntactic complexity?
+
+
+## 4(b): Do these differences align with or complicate your earlier lexical findings?
+
+
+## 4(c): What kinds of rhetorical or stylistic practices might these syntactic patterns reflect?
+
+
+
+
+
+# ---------------------
+# VI - Synthesis
+# ---------------------
+
+## The central analytical question/hypothesis/idea (with explanation)
+
+
+
+
+
+
+
+## Limitations of these approaches 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
