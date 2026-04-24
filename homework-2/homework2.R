@@ -150,13 +150,11 @@ write_csv(sentiment_comparison, "sentiment_comparison_table.csv")
 
 # Q3. Which specific words drove the changes?
 
-sentiment_tfidf_inspect %>%
+sentiment_tfidf_inspect <- sentiment_tfidf_counts %>%
   group_by(doc_title) %>%
   arrange(desc(tf_idf), .by_group = TRUE) %>%
-  slice_head(n = 20) %>%
+  slice_head(n = 10) %>%
   View()
-
-View(sentiment_tfidf_inspect)
 
 ## In "Free Trade", words such as 
 ## imposition, disorderly, deficient, forbidden, offend, cruelty, 
