@@ -1,0 +1,50 @@
+Confusion matrix: [[1981    0]
+ [   6 1923]]
+
+Classification report:               precision    recall  f1-score   support
+
+           0       1.00      1.00      1.00      1981
+           1       1.00      1.00      1.00      1929
+
+    accuracy                           1.00      3910
+   macro avg       1.00      1.00      1.00      3910
+weighted avg       1.00      1.00      1.00      3910
+
+
+ROC AUC: 1.0
+
+Non-zero coefficients: 28
+
+Top 15 positive words (CORE):
+    trade                174.9200
+    merchants            148.6404
+    merchant             123.9345
+    marchants            89.9992
+    marchant             66.2717
+    staple               57.4365
+    factor               56.9495
+    adventurers          42.9010
+    chapman              36.5287
+    adventurer           31.3810
+    purser               28.6691
+    venturers            12.0723
+    ship                 3.0754
+    have                 1.8210
+    william              1.6965
+
+Top 15 negative words (NEG):
+    god                  -2.7235
+    that                 -2.5574
+    it                   -0.8643
+    christ               -0.3436
+    not                  -0.2839
+    00                   0.0000
+    pillage              0.0000
+    pill                 0.0000
+    pilgrims             0.0000
+    pilgrime             0.0000
+    pillar               0.0000
+    pilgrimage           0.0000
+    pilgrim              0.0000
+    piles                0.0000
+    pile                 0.0000

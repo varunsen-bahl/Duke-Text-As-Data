@@ -1,0 +1,50 @@
+Confusion matrix: [[1906   75]
+ [ 131 1798]]
+
+Classification report:               precision    recall  f1-score   support
+
+           0       0.94      0.96      0.95      1981
+           1       0.96      0.93      0.95      1929
+
+    accuracy                           0.95      3910
+   macro avg       0.95      0.95      0.95      3910
+weighted avg       0.95      0.95      0.95      3910
+
+
+ROC AUC: 0.987
+
+Non-zero coefficients: 16198
+
+Top 15 positive words (CORE):
+    trade                27.5556
+    merchants            22.2859
+    merchant             17.6244
+    marchants            13.4153
+    marchant             8.7089
+    factor               5.1888
+    staple               4.9854
+    commodities          4.3283
+    ship                 3.1485
+    buy                  2.9950
+    chapman              2.9565
+    exchange             2.9491
+    goods                2.9325
+    ships                2.7257
+    money                2.7011
+
+Top 15 negative words (NEG):
+    god                  -3.1221
+    power                -1.9278
+    pope                 -1.8971
+    rome                 -1.8883
+    christ               -1.7666
+    spirit               -1.6501
+    enemies              -1.6452
+    gods                 -1.6270
+    forces               -1.6004
+    faith                -1.5932
+    against              -1.5706
+    vertue               -1.5056
+    that                 -1.4336
+    de                   -1.3527
+    armie                -1.3487
